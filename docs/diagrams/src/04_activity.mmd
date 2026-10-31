@@ -1,0 +1,29 @@
+flowchart TD
+  A([Start: selection requested]) --> B{Open intervention exists?}
+  B -- yes --> B1[Reject 409: finish current one first] --> Z([End])
+  B -- no --> C{State missing or older<br/>than latest record?}
+  C -- yes --> C1{Required indicator present?}
+  C1 -- no --> C2[Reject 422: record an assessment first] --> Z
+  C1 -- yes --> C3[Random Forest estimates state<br/>impute + flag missing optional data] --> D
+  C -- no --> D[Build context: state, weakest topic,<br/>mastery, engagement, no-improvement streak]
+  D --> E[Evaluate eligibility rules R1-R5]
+  E --> F[Apply exclusions X1 failed arm, X2 inactive]
+  F --> G{Eligible set empty?}
+  G -- yes --> G1{State Normal?}
+  G1 -- yes --> G2[F0: no intervention indicated] --> Z
+  G1 -- no --> G3[F1 fallback: practice + material] --> H
+  G -- no --> H[Linear Thompson sampling over eligible arms]
+  H --> I[Record assignment with context, seed,<br/>sampled scores, pre-indicators]
+  I --> J[Student completes activity]
+  J --> K[Follow-up score on same topic, 0-100]
+  K --> L{Comparable? same topic, valid range,<br/>not already recorded}
+  L -- no --> L1[Reject 409/422]
+  L -- yes --> M[g = normalised gain, e = engagement change<br/>r = alpha g + 1-alpha e]
+  M --> N{r ≥ positive threshold?}
+  N -- yes --> N1[Positive]
+  N -- no --> O{r ≥ partial threshold?}
+  O -- yes --> O1[Partial]
+  O -- no --> O2[No Improvement]
+  N1 & O1 & O2 --> P[Update chosen arm: A += x xᵀ, b += r x<br/>new policy version, once per intervention]
+  P --> Q[Reassess student state with new result]
+  Q --> Z

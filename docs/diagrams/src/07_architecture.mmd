@@ -1,0 +1,16 @@
+flowchart TB
+  U[Student / Faculty / Admin browser] --> FE[React.js frontend]
+  FE -->|REST + JWT| API[FastAPI backend · auth, validation, RBAC]
+  API --> S1
+  subgraph SVC[Application services]
+    S1[1 · Student-state estimation<br/>Random Forest] --> S2[2 · Intervention eligibility<br/>configurable rules]
+    S2 --> S3[3 · Adaptive selection<br/>linear Thompson sampling]
+    S3 --> S4[4 · Delivery<br/>resources, practice, plans, faculty]
+    S4 --> S5[5 · Response evaluation<br/>g, e, reward, category]
+    S5 --> S6[6 · Policy update<br/>A += xxᵀ, b += r·x]
+    S5 --> S7[7 · State reassessment]
+    S6 -.next selection.-> S3
+    S7 -.next selection.-> S2
+  end
+  S1 & S2 & S3 & S5 & S6 & S7 <--> DB[(PostgreSQL<br/>records · states · interventions ·<br/>responses · policy versions · audit)]
+  API --> DASH[Dashboard + analytics queries] --> DB

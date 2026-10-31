@@ -1,0 +1,26 @@
+flowchart LR
+  S([Student]):::actor
+  F([Faculty Member]):::actor
+  A([Administrator]):::actor
+  subgraph EP[EduPulse System]
+    UC1((Log in))
+    UC2((View own academic state<br/>and indicators))
+    UC3((Request next recommendation))
+    UC4((Access / complete<br/>intervention))
+    UC5((Submit follow-up<br/>assessment))
+    UC6((View progress and<br/>intervention history))
+    UC7((View assigned students))
+    UC8((Enter academic records))
+    UC9((Re-estimate state))
+    UC10((Review interventions<br/>and outcomes))
+    UC11((Record faculty support))
+    UC12((Evaluate response))
+    UC13((Manage users and roles))
+    UC14((Manage interventions<br/>and resources))
+    UC15((Configure policy and<br/>eligibility rules))
+    UC16((View system statistics<br/>and audit log))
+  end
+  S --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6
+  F --- UC1 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC6
+  A --- UC1 & UC13 & UC14 & UC15 & UC16 & UC8
+  classDef actor fill:#eaeefe,stroke:#3b5bdb,color:#1d2433

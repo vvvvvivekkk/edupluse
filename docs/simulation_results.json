@@ -1,0 +1,72 @@
+{
+  "disclaimer": "SIMULATION RESULTS under an assumed reward model - not real-world evidence.",
+  "runs": 30,
+  "rounds_per_run": 600,
+  "noise_sd": 0.25,
+  "pool_size": 870,
+  "policies": {
+    "linear_thompson": {
+      "mean_reward_all_rounds": 0.2606,
+      "mean_reward_last_100_rounds": 0.2734,
+      "final_cumulative_regret_mean": 24.3,
+      "final_cumulative_regret_sd": 3.36,
+      "ineligible_selections": 0,
+      "regret_curve_every_50": [
+        3.36,
+        5.84,
+        8.31,
+        10.73,
+        12.89,
+        14.86,
+        16.52,
+        18.08,
+        19.67,
+        21.08,
+        22.69,
+        24.3
+      ]
+    },
+    "random_eligible": {
+      "mean_reward_all_rounds": 0.2272,
+      "mean_reward_last_100_rounds": 0.2311,
+      "final_cumulative_regret_mean": 46.36,
+      "final_cumulative_regret_sd": 1.69,
+      "ineligible_selections": 0,
+      "regret_curve_every_50": [
+        3.77,
+        7.51,
+        11.58,
+        15.25,
+        18.9,
+        22.93,
+        26.8,
+        30.89,
+        34.83,
+        38.67,
+        42.53,
+        46.36
+      ]
+    },
+    "fixed_rule": {
+      "mean_reward_all_rounds": 0.1853,
+      "mean_reward_last_100_rounds": 0.1869,
+      "final_cumulative_regret_mean": 72.53,
+      "final_cumulative_regret_sd": 3.11,
+      "ineligible_selections": 0,
+      "regret_curve_every_50": [
+        5.9,
+        11.99,
+        18.05,
+        24.24,
+        30.37,
+        36.11,
+        42.47,
+        48.42,
+        54.35,
+        60.43,
+        66.48,
+        72.53
+      ]
+    }
+  }
+}

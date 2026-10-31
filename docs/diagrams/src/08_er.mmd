@@ -1,0 +1,78 @@
+erDiagram
+  users ||--o| student_profiles : has
+  users ||--o| faculty_profiles : has
+  faculty_profiles ||--o{ faculty_student_assignments : supervises
+  student_profiles ||--o{ faculty_student_assignments : "assigned to"
+  topics ||--o{ assessments : covers
+  topics ||--o{ assignments : covers
+  assessments ||--o{ student_assessment_results : "results of"
+  student_profiles ||--o{ student_assessment_results : earns
+  student_profiles ||--o{ attendance_records : has
+  assignments ||--o{ student_assignment_records : "status of"
+  student_profiles ||--o{ student_assignment_records : has
+  student_profiles ||--o{ learning_activity_records : does
+  student_profiles ||--o{ student_states : "estimated as"
+  intervention_types ||--o{ learning_resources : provides
+  student_profiles ||--o{ intervention_assignments : receives
+  intervention_types ||--o{ intervention_assignments : "type of"
+  learning_resources |o--o{ intervention_assignments : delivers
+  student_states ||--o{ intervention_assignments : "basis of"
+  policy_versions ||--o{ intervention_assignments : "selected under"
+  intervention_assignments ||--o| intervention_responses : "measured by"
+  intervention_assignments ||--o{ learning_activity_records : produces
+  policy_versions ||--o{ policy_parameters : contains
+  intervention_types ||--o{ policy_parameters : "arm of"
+  intervention_assignments ||--o| policy_updates : triggers
+  users ||--o{ audit_logs : performs
+
+  users { int id PK
+    string email UK
+    string password_hash
+    string role
+    bool is_active }
+  student_profiles { int id PK
+    int user_id FK
+    string roll_number UK
+    float previous_result_pct }
+  student_states { int id PK
+    int student_id FK
+    string state
+    json features
+    json probabilities
+    string model_version
+    timestamp created_at }
+  intervention_assignments { int id PK
+    int student_id FK
+    int intervention_type_id FK
+    int student_state_id FK
+    int policy_version_id FK
+    json context
+    json eligible
+    json sampled_scores
+    int rng_seed
+    json pre_indicators
+    string status }
+  intervention_responses { int id PK
+    int assignment_id FK,UK
+    json post_indicators
+    float learning_gain
+    float engagement_change
+    float reward
+    string category }
+  policy_versions { int id PK
+    int version UK
+    float lam
+    float v
+    json feature_names }
+  policy_parameters { int id PK
+    int policy_version_id FK
+    int intervention_type_id FK
+    json A
+    json b
+    int n_observations }
+  policy_updates { int id PK
+    int assignment_id FK,UK
+    int from_version_id FK
+    int to_version_id FK
+    float reward
+    json context_vector }

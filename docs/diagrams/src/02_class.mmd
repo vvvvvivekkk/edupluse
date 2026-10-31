@@ -1,0 +1,113 @@
+classDiagram
+  direction LR
+  class User {
+    +int id
+    +str email
+    +str password_hash
+    +str role
+    +bool is_active
+  }
+  class StudentProfile {
+    +int id
+    +str roll_number
+    +float previous_result_pct
+  }
+  class FacultyProfile {
+    +int id
+    +str department
+  }
+  class AcademicRecord {
+    <<abstract>>
+    StudentAssessmentResult
+    AttendanceRecord
+    StudentAssignmentRecord
+    LearningActivityRecord
+  }
+  class StudentState {
+    +str state
+    +dict features
+    +list imputed_features
+    +dict probabilities
+    +str model_version
+  }
+  class InterventionType {
+    +str code
+    +str name
+    +bool is_active
+  }
+  class LearningResource {
+    +str title
+    +str url
+    +dict content
+  }
+  class InterventionAssignment {
+    +int id
+    +dict context
+    +list eligible
+    +dict sampled_scores
+    +int rng_seed
+    +dict pre_indicators
+    +str status
+  }
+  class InterventionResponse {
+    +dict post_indicators
+    +float learning_gain
+    +float engagement_change
+    +float reward
+    +str category
+  }
+  class AdaptivePolicy {
+    <<PolicyVersion + PolicyParameter>>
+    +int version
+    +float lam
+    +float v
+    +A[d x d] per arm
+    +b[d] per arm
+  }
+  class PolicyUpdate {
+    +float reward
+    +list context_vector
+  }
+  class StateModel {
+    <<service: app.ml.state_model>>
+    +predict_state(features) dict
+  }
+  class EligibilityEngine {
+    <<service: app.engine.eligibility>>
+    +evaluate_eligibility(ctx, rules, cfg) dict
+  }
+  class LinearThompsonSampler {
+    <<service: app.engine.thompson>>
+    +build_context(...) ndarray
+    +select_arm(params, eligible, x, v, rng)
+  }
+  class ArmParams {
+    +ndarray A
+    +ndarray b
+    +int n
+    +posterior(v)
+    +updated(x, r) ArmParams
+  }
+  class RewardEvaluator {
+    <<service: app.engine.reward>>
+    +learning_gain(pre, post)
+    +engagement_change(pre, post)
+    +combined_reward(g, e, alpha)
+    +classify(r)
+  }
+  User "1" -- "0..1" StudentProfile
+  User "1" -- "0..1" FacultyProfile
+  FacultyProfile "*" -- "*" StudentProfile : assigned
+  StudentProfile "1" -- "*" AcademicRecord
+  StudentProfile "1" -- "*" StudentState
+  StudentProfile "1" -- "*" InterventionAssignment
+  InterventionType "1" -- "*" LearningResource
+  InterventionType "1" -- "*" InterventionAssignment
+  InterventionAssignment "1" -- "0..1" InterventionResponse
+  InterventionAssignment "*" --> "1" StudentState : based on
+  InterventionAssignment "*" --> "1" AdaptivePolicy : selected under
+  PolicyUpdate "0..1" --> "1" InterventionAssignment
+  AdaptivePolicy "1" *-- "*" ArmParams
+  StateModel ..> StudentState : creates
+  LinearThompsonSampler ..> ArmParams : samples
+  RewardEvaluator ..> InterventionResponse : fills

@@ -1,0 +1,20 @@
+flowchart LR
+  subgraph Client[User device]
+    BR[Web browser]
+  end
+  subgraph Web[Web server · e.g. Nginx]
+    STATIC[React build · static files<br/>frontend/dist]
+    PROXY[Reverse proxy /api → :8000<br/>HTTPS termination]
+  end
+  subgraph App[Application server · Python 3.11+]
+    UV[Uvicorn / Gunicorn workers]
+    FAST[FastAPI app]
+    ART[[Model artifact<br/>state_model.joblib]]
+  end
+  subgraph Data[Database server]
+    PG[(PostgreSQL 14+<br/>edupulse DB)]
+  end
+  BR -- HTTPS --> STATIC
+  BR -- HTTPS /api --> PROXY --> UV --> FAST
+  FAST -- loads at startup --> ART
+  FAST -- SQLAlchemy / psycopg2 · TCP 5432 --> PG

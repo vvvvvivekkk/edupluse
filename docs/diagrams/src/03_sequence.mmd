@@ -1,0 +1,39 @@
+sequenceDiagram
+  autonumber
+  actor St as Student
+  participant UI as React frontend
+  participant API as FastAPI
+  participant SVC as Cycle service
+  participant RF as Random Forest
+  participant EL as Eligibility rules
+  participant TS as Linear Thompson sampling
+  participant DB as PostgreSQL
+
+  St->>UI: Get my next recommendation
+  UI->>API: POST /api/interventions/select
+  API->>SVC: select_intervention(student)
+  SVC->>DB: latest state + academic records
+  alt state missing or stale
+    SVC->>RF: predict_state(features)
+    RF-->>SVC: state, probabilities, explanation
+    SVC->>DB: INSERT student_states
+  end
+  SVC->>EL: evaluate_eligibility(context, rules)
+  EL-->>SVC: eligible set + reasons (or fallback)
+  SVC->>DB: current policy version (A, b per arm)
+  SVC->>TS: select_arm(params, eligible, x, seed)
+  TS-->>SVC: chosen arm + sampled scores
+  SVC->>DB: INSERT intervention_assignments (context, seed, pre-indicators)
+  API-->>UI: selected intervention
+  St->>UI: complete activity
+  UI->>API: POST /interventions/{id}/complete
+  API->>DB: status=completed (+ practice record)
+  St->>UI: enter follow-up score
+  UI->>API: POST /interventions/{id}/response
+  API->>SVC: record_response + evaluate_response
+  SVC->>DB: INSERT follow-up result, intervention_responses
+  SVC->>SVC: g, e, r, category
+  SVC->>DB: new policy_version, policy_parameters, policy_updates (once)
+  SVC->>RF: reassess state (separate step)
+  SVC->>DB: INSERT student_states
+  API-->>UI: category, policy v(n)→v(n+1), new state
