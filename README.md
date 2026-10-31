@@ -104,6 +104,7 @@ Reset demo data any time: `python -m scripts.seed --reset`.
 cd backend && python -m pytest -q          # 54 tests, uses edupulse_test DB
 python -m scripts.simulate                 # regenerates docs/simulation_results.*
 cd ../frontend && python e2e/e2e_cycle.py  # browser test (API + dev server running, fresh seed)
+# the browser test needs Playwright once:  pip install playwright && python -m playwright install chromium
 ```
 
 ---
