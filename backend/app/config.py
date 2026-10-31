@@ -2,7 +2,11 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Load backend/.env if present. Variables already set in the shell take priority.
+load_dotenv(BASE_DIR / ".env", override=False)
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+psycopg2://edupulse:edupulse@localhost:5432/edupulse"

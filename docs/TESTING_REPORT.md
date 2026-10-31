@@ -7,8 +7,11 @@ Date of run: 1 November 2026.
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + integration (pytest) | `cd backend && python -m pytest -q` | **54 passed, 0 failed** |
+| Backend unit + integration (pytest) on PostgreSQL 16 | `cd backend && python -m pytest -q` | **54 passed, 0 failed** |
+| Same suite on SQLite | `TEST_DATABASE_URL=sqlite:///./test.db python -m pytest -q` | **54 passed, 0 failed** |
+| Clean install from GitHub (new venv, only `requirements.txt`, empty DB, model retrained) | see below | **passed** — found and fixed a missing dependency (`python-multipart`) |
 | Browser end-to-end (Playwright) | `cd frontend && python e2e/e2e_cycle.py` | **passed, 0 console errors** |
+| New-student browser test | `python e2e/e2e_new_student.py` | **8 of 8 runs passed**; the teacher-meeting path occurred in 4 runs and passed |
 | Frontend production build | `npm run build` | passed |
 | Policy simulation vs baselines | `python -m scripts.simulate` | completed (see below) |
 
@@ -40,6 +43,21 @@ recommendation → complete practice → submit follow-up → policy update + st
 dashboard and history updated → faculty dashboard → student details → invalid record rejected in UI
 → valid record saved → analytics → access to an unassigned student blocked → admin overview, policy,
 configuration. Screenshots in `docs/screenshots/`.
+
+## New-student flow (browser)
+
+`frontend/e2e/e2e_new_student.py`, run on SQLite:
+1. Admin creates *Test Student* (Admin → Users) and assigns them to a faculty member.
+2. The student logs in: every indicator shows "no data", and asking for a recommendation shows
+   *"required indicator 'Latest assessment score' is missing"* — the system refuses to guess.
+3. The teacher adds a quiz result (8/20 on Recursion) and attendance (3/5), re-estimates the state
+   (High Support Need) and selects an intervention.
+4. The student completes it. If **faculty support** was selected, the student sees it but cannot
+   mark it done; the teacher marks the consultation held, then the student submits the follow-up.
+5. The follow-up (65%) is evaluated, the policy updates, and the teacher sees the result in the history.
+
+Because Thompson sampling is random among the allowed options, the test was run 8 times: all passed,
+covering both the self-study path and the teacher-meeting path. Screenshots: `screenshots/new_student_*.png`.
 
 ## Adaptive selection: simulation vs baselines (brief §12)
 

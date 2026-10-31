@@ -35,6 +35,7 @@ Documentation index:
 - `docs/API.md` — REST API reference (full OpenAPI spec in `docs/openapi.json`, live Swagger at `/docs`)
 - `docs/TESTING_REPORT.md` — test coverage mapped to brief §11.4, results, simulation
 - `docs/UML.md` — the 8 required diagrams (PNG + SVG + Mermaid source in `docs/diagrams/`)
+- `docs/REQUIREMENTS_CHECKLIST.md` — every requirement in the brief, with status and evidence (brief itself: `docs/EDUPULSE_Project_Brief_Requirements.docx`)
 - `docs/EXPLAINED_SIMPLY.md` — plain-language walkthrough for presenting and defending the project
 
 ---
@@ -47,6 +48,9 @@ Documentation index:
 - PostgreSQL 14+ (developed on 16)
 
 ### 1. Database
+
+> Quick local run without PostgreSQL: set `DATABASE_URL=sqlite:///./edupulse.db` in `backend/.env` and skip this step. PostgreSQL is the intended database for the real deployment.
+
 ```bash
 sudo -u postgres psql -c "CREATE USER edupulse WITH PASSWORD 'edupulse' CREATEDB;"
 sudo -u postgres createdb -O edupulse edupulse
@@ -58,7 +62,7 @@ sudo -u postgres createdb -O edupulse edupulse_test   # for automated tests
 cd backend
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env        # edit SECRET_KEY and DATABASE_URL as needed, then export the variables
+cp .env.example .env        # edit SECRET_KEY and DATABASE_URL; loaded automatically at startup
 python -m app.ml.train      # trains the Random Forest, writes models/ (already included)
 python -m scripts.seed --reset
 uvicorn app.main:app --reload --port 8000
@@ -101,9 +105,10 @@ Reset demo data any time: `python -m scripts.seed --reset`.
 
 ## Running the tests
 ```bash
-cd backend && python -m pytest -q          # 54 tests, uses edupulse_test DB
+cd backend && python -m pytest -q          # 54 tests, uses edupulse_test DB (or TEST_DATABASE_URL=sqlite:///./test.db)
 python -m scripts.simulate                 # regenerates docs/simulation_results.*
 cd ../frontend && python e2e/e2e_cycle.py  # browser test (API + dev server running, fresh seed)
+python e2e/e2e_new_student.py              # new student: admin creates -> teacher adds marks -> full cycle (fresh seed)
 # the browser test needs Playwright once:  pip install playwright && python -m playwright install chromium
 ```
 
