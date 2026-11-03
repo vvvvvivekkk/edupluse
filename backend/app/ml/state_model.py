@@ -22,7 +22,7 @@ def load_model():
         from .train import train
         train(verbose=False)
     bundle = joblib.load(path)
-    card = json.loads((MODEL_DIR / "model_card.json").read_text())
+    card = json.loads((MODEL_DIR / "model_card.json").read_text(encoding="utf-8"))
     return bundle, card
 
 

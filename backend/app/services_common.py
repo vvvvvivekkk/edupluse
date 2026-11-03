@@ -22,12 +22,31 @@ def get_policy_config(db: Session) -> dict:
     return cfg
 
 
+INTEGER_KEYS = {"no_improvement_streak", "engagement_window_days"}
+PERCENT_KEYS = {"low_score_threshold", "weak_mastery_threshold", "low_attendance_threshold",
+                "low_completion_threshold"}
+
+
+def _clean_value(key: str, value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value != value:
+        raise ValueError(f"{key} must be a number")
+    if key in INTEGER_KEYS:
+        if value != int(value) or value < 1:
+            raise ValueError(f"{key} must be a whole number of at least 1")
+        return int(value)
+    if key in PERCENT_KEYS and not 0 <= value <= 100:
+        raise ValueError(f"{key} is a percentage and must be between 0 and 100")
+    if key in ("positive_threshold", "partial_threshold") and not -1 <= value <= 1:
+        raise ValueError(f"{key} applies to a reward in [-1, 1] and must be within that range")
+    return float(value)
+
+
 def set_policy_config(db: Session, updates: dict, user_id: int | None) -> dict:
     cfg = get_policy_config(db)
     unknown = set(updates) - set(DEFAULT_CONFIG)
     if unknown:
         raise ValueError(f"Unknown config keys: {sorted(unknown)}")
-    new = {**cfg, **updates}
+    new = {**cfg, **{k: _clean_value(k, v) for k, v in updates.items()}}
     if not 0.0 <= float(new["reward_alpha"]) <= 1.0:
         raise ValueError("reward_alpha must be between 0 and 1")
     if not new["partial_threshold"] < new["positive_threshold"]:

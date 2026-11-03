@@ -31,13 +31,14 @@ export function errorMessage(detail) {
 
 export async function api(path, { method = 'GET', body } = {}) {
   const s = getSession()
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData // file upload: browser sets the boundary
   const res = await fetch(`/api${path}`, {
     method,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
       ...(s ? { Authorization: `Bearer ${s.token}` } : {}),
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
   })
   if (res.status === 401 && s) {
     clearSession()

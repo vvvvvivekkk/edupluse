@@ -51,7 +51,7 @@ with sync_playwright() as p:
     page.get_by_label("Full name").fill(NAME)
     page.get_by_label("Email").fill(EMAIL)
     page.get_by_label("Initial password").fill(PASSWORD)
-    page.get_by_label("Role").select_option("student")
+    page.locator("form.record-form").get_by_label("Role").select_option("student")
     page.get_by_label("Roll number").fill(ROLL)
     page.get_by_role("button", name="Create").click()
     expect(page.locator(".alert.ok")).to_contain_text("User created")

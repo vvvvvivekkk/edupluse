@@ -24,8 +24,8 @@ Stack (as agreed in the brief): **React.js + Recharts** · **Python + FastAPI** 
 | `backend/models/` | Trained model artifact + `model_card.json` (dataset, metrics) |
 | `backend/scripts/seed.py` | Creates tables and loads demo data |
 | `backend/scripts/simulate.py` | Simulation study: LinTS vs random vs fixed-rule baselines |
-| `backend/tests/` | 54 automated tests (pytest) |
-| `frontend/` | React application (9 screens) + `e2e/e2e_cycle.py` browser test |
+| `backend/tests/` | 66 automated tests (pytest) |
+| `frontend/` | React application (9 screens), `src/test/` component tests (Vitest), `e2e/` browser tests (Playwright) |
 | `docs/` | Design, data & model, API, testing report, UML diagrams, screenshots, simulation results |
 
 Documentation index:
@@ -56,6 +56,11 @@ sudo -u postgres psql -c "CREATE USER edupulse WITH PASSWORD 'edupulse' CREATEDB
 sudo -u postgres createdb -O edupulse edupulse
 sudo -u postgres createdb -O edupulse edupulse_test   # for automated tests
 ```
+Or with Docker (any OS):
+```bash
+docker run -d --name edupulse-pg -e POSTGRES_USER=edupulse -e POSTGRES_PASSWORD=edupulse -e POSTGRES_DB=edupulse -p 5432:5432 postgres:16
+docker exec edupulse-pg psql -U edupulse -c "CREATE DATABASE edupulse_test;"
+```
 
 ### 2. Backend
 ```bash
@@ -80,7 +85,7 @@ Production build: `npm run build` → static files in `frontend/dist/`.
 ### Demo accounts (synthetic data)
 | Role | Email | Password |
 |---|---|---|
-| Student | `student1@edupulse.edu` … `student16@edupulse.edu` | `Student@123` |
+| Student | `student1@edupulse.edu` … `student16@edupulse.edu` (or roll number `EP26001` … `EP26016` as username) | `Student@123` |
 | Faculty | `faculty1@edupulse.edu`, `faculty2@edupulse.edu` | `Faculty@123` |
 | Admin | `admin@edupulse.edu` | `Admin@123` |
 
@@ -95,9 +100,9 @@ Change these before any real use.
 3. Complete the activity (answer the practice questions, or mark the material/plan complete).
 4. Enter a **follow-up score** (e.g. 72). The system computes learning gain, engagement change and reward, classifies the response, **updates the policy (v1 → v2)** and **reassesses the state**.
 5. Back on the dashboard: new state, before/after chart, history row. Click **Get my next recommendation** again — the next selection uses the updated policy.
-6. Log in as **faculty1**: state distribution, students needing review, response categories. Open a student to see sampled scores, the context vector and RNG seed for each decision (reproducible/auditable), add academic records, or record faculty support.
+6. Log in as **faculty1**: state distribution, students needing review, response categories. Open a student to see sampled scores, the context vector and RNG seed for each decision (reproducible/auditable), add academic records, correct a mistaken record (with a reason, audited), or record faculty support. At the bottom of the dashboard, **Import academic records (CSV)**: download the template, *Check file*, then *Import* (nothing is stored if any row is invalid).
 7. Repeat poor follow-ups (e.g. 10) for one student: after 2 consecutive *No Improvement* results, faculty support becomes eligible and the student appears under "needs review".
-8. Log in as **admin**: policy versions and update history, posterior parameters per intervention, configuration (α, thresholds, λ, v), editable eligibility rules, users, resources, audit log.
+8. Log in as **admin**: policy versions and update history, posterior parameters per intervention, configuration (α, thresholds, λ, v), editable eligibility rules, users and role assignment, resources, audit log.
 
 Reset demo data any time: `python -m scripts.seed --reset`.
 
@@ -105,10 +110,12 @@ Reset demo data any time: `python -m scripts.seed --reset`.
 
 ## Running the tests
 ```bash
-cd backend && python -m pytest -q          # 54 tests, uses edupulse_test DB (or TEST_DATABASE_URL=sqlite:///./test.db)
+cd backend && python -m pytest -q          # 66 tests, uses edupulse_test DB (or TEST_DATABASE_URL=sqlite:///./test.db)
 python -m scripts.simulate                 # regenerates docs/simulation_results.*
-cd ../frontend && python e2e/e2e_cycle.py  # browser test (API + dev server running, fresh seed)
+cd ../frontend && npm test                 # 20 component tests (Vitest + Testing Library, no server needed)
+python e2e/e2e_cycle.py                    # browser test (API + dev server running, fresh seed)
 python e2e/e2e_new_student.py              # new student: admin creates -> teacher adds marks -> full cycle (fresh seed)
+python e2e/e2e_records_admin.py            # CSV import, record correction, role change, roll-number login (fresh seed)
 # the browser test needs Playwright once:  pip install playwright && python -m playwright install chromium
 ```
 

@@ -159,3 +159,8 @@ ul.plain li:last-child { border-bottom: 0; }
 .demo { font-size: 13px; color: var(--muted); }
 .demo summary { cursor: pointer; }
 @media (max-width: 800px) { .login-wrap { grid-template-columns: 1fr; } .login-side { padding: 32px; } }
+
+.role-editor { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.role-editor input { width: 120px; }
+.import .inline-form { margin-bottom: 10px; }
+.import table { margin-top: 8px; }

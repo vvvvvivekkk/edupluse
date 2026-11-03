@@ -111,7 +111,7 @@ def train(out_dir=MODEL_DIR, verbose=True) -> dict:
     }
     joblib.dump({"pipeline": model, "version": MODEL_VERSION, "features": FEATURE_NAMES},
                 out_dir / "state_model.joblib")
-    (out_dir / "model_card.json").write_text(json.dumps(card, indent=2, default=str))
+    (out_dir / "model_card.json").write_text(json.dumps(card, indent=2, default=str), encoding="utf-8")
     if verbose:
         print(json.dumps({"selection": selection, "test": {k: v for k, v in metrics.items()
                                                             if k != "per_class"}}, indent=2))

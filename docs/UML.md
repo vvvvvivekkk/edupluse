@@ -21,7 +21,7 @@ flowchart LR
     UC5((Submit follow-up<br/>assessment))
     UC6((View progress and<br/>intervention history))
     UC7((View assigned students))
-    UC8((Enter academic records))
+    UC8((Enter, import and correct<br/>academic records))
     UC9((Re-estimate state))
     UC10((Review interventions<br/>and outcomes))
     UC11((Record faculty support))

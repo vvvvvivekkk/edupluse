@@ -5,11 +5,13 @@ folder) against what is implemented and how it was verified.
 
 Legend: ✅ met · ⚠️ partly met / needs a decision · ❌ not done
 
-Verification sources: **T** = automated pytest test (`backend/tests/`), **E2E** = browser test
-(`frontend/e2e/e2e_cycle.py`, `e2e_new_student.py`), **S** = screenshot in `docs/screenshots/`,
-**D** = document in `docs/`.
+Verification sources: **T** = automated pytest test (`backend/tests/`), **FT** = frontend component test
+(`frontend/src/test/`), **E2E** = browser test (`frontend/e2e/e2e_cycle.py`, `e2e_new_student.py`,
+`e2e_records_admin.py`), **S** = screenshot in `docs/screenshots/`, **D** = document in `docs/`.
 
-Last checked: 1 November 2026 — 54/54 tests pass on PostgreSQL 16 **and** SQLite; both browser tests pass.
+Last checked: 3 November 2026 — backend 66/66 on PostgreSQL 16 (65 + 1 PostgreSQL-only skip on SQLite),
+frontend 20/20, all three browser tests pass. The three gaps left open on 1 November (bulk import, role
+assignment, frontend test framework) are now closed; see "Changes on 3 November" at the end.
 
 ---
 
@@ -51,12 +53,12 @@ Last checked: 1 November 2026 — 54/54 tests pass on PostgreSQL 16 **and** SQLi
 | recommend/record faculty support | ✅ | "Record faculty support"; T `test_faculty_manual_support_record`; E2E (teacher marks consultation held) |
 | access restricted to authorised students | ✅ | T `test_faculty_sees_only_assigned`; E2E (403 shown) |
 | **Admin**: manage user accounts | ✅ | Admin → Users (create, activate/deactivate); E2E new_student_01 |
-| assign roles | ⚠️ | role chosen at creation; changing an existing user's role only works if they already have the matching profile (by design, to keep records consistent) |
-| manage academic records and configuration | ✅ | admin can open any student page and add records; Admin → Configuration |
+| assign roles | ✅ | Admin → Users: role selector per user; a missing profile is created (student needs a roll number), existing profiles and history are kept, change audited with the previous role; admin cannot demote/deactivate self. T `test_admin_assigns_roles_and_profiles_are_created`, `test_admin_cannot_lock_themselves_out`; E2E records_admin; S records_04 |
+| manage academic records and configuration | ✅ | add (form), bulk import (CSV), list and correct records with an audited reason on any student page; Admin → Configuration. T `test_correct_record_*`, `test_import_*`; S records_01–03 |
 | manage intervention categories and resources | ✅ | Admin → Interventions |
 | configure initial policy parameters | ✅ | λ, v in configuration + "Re-initialise policy" |
 | view system statistics | ✅ | Admin → Overview (S 10) |
-| no unaudited alteration of historical results | ✅ | history is never editable; all changes written to `audit_logs` |
+| no unaudited alteration of historical results | ✅ | intervention history is never editable; records that are evidence for an intervention result are locked (409); corrections of other records keep before/after + reason in `audit_logs`. T `test_records_behind_intervention_results_are_locked` |
 
 ## §4 Core modules
 
@@ -113,10 +115,10 @@ Last checked: 1 November 2026 — 54/54 tests pass on PostgreSQL 16 **and** SQLi
 
 | Screen | Status | Evidence |
 |---|---|---|
-| 1 Login (validation, role redirect, errors) | ✅ | S 01 |
+| 1 Login — email **or username** (students: roll number), validation, role redirect, errors | ✅ | S 01; T `test_login_with_roll_number_as_username`; FT `auth.test.jsx` (validation, error, redirect per role) |
 | 2 Student dashboard | ✅ | S 02, 05 |
 | 3 Faculty dashboard | ✅ | S 07 |
-| 4 Student details | ✅ | S 08 |
+| 4 Student details (incl. academic-record list and correction) | ✅ | S 08, records_03 |
 | 5 Intervention details | ✅ | S 03 |
 | 6 Follow-up assessment / response (validates ownership) | ✅ | S 04; T `test_response_requires_completion_and_valid_score` |
 | 7 Intervention history | ✅ | S 06 |
@@ -128,15 +130,17 @@ Last checked: 1 November 2026 — 54/54 tests pass on PostgreSQL 16 **and** SQLi
 | Requirement | Status | Evidence |
 |---|---|---|
 | all 13 example endpoints | ✅ | same paths implemented; D `API.md` |
-| validation, authorisation, useful errors, documentation | ✅ | Swagger at `/docs`, `openapi.json` |
+| `POST api/academic-records` "Create **or update**" | ✅ | create: `POST /api/academic-records`; bulk: `POST /api/academic-records/import`; update: `PATCH /api/academic-records/{type}/{id}` (audited correction) |
+| validation, authorisation, useful errors, documentation | ✅ | Swagger at `/docs`, `openapi.json`; admin PATCH bodies and configuration values are typed and range-checked (T `test_config_rejects_non_numeric_and_out_of_range`, `test_resource_and_type_patches_are_validated`) |
 | duplicate responses cannot update policy twice | ✅ | T `test_full_cycle_…`; row lock + UNIQUE constraint |
+| simultaneous evaluations of different students all update the policy (none lost) | ✅ | PostgreSQL advisory lock; T `test_concurrent_evaluations_do_not_lose_policy_updates` (fails 5/6 without the lock) |
 
 ## §10 End-to-end workflow (main acceptance requirement)
 
 | Stage | Status | Evidence |
 |---|---|---|
 | 1 Data entry by admin/faculty | ✅ | forms in UI + API; E2E new_student_03 |
-| 1 … "or imports" | ❌ | **No bulk file import (e.g. CSV upload).** Records are entered one at a time through the form or API. Can be added if needed. |
+| 1 … "or imports" | ✅ | CSV import on the faculty dashboard (and API): template download, check first (dry run), all-or-nothing, per-row errors, faculty limited to assigned students, audited. T `test_import_*`; FT `ImportRecords`; E2E records_admin; S records_01, records_02 |
 | 2 Validation | ✅ | |
 | 3 State estimation | ✅ | |
 | 4 Eligibility | ✅ | |
@@ -172,7 +176,7 @@ Last checked: 1 November 2026 — 54/54 tests pass on PostgreSQL 16 **and** SQLi
 | Requirement | Status | Notes |
 |---|---|---|
 | recommended stack incl. OpenAPI docs, Git/GitHub | ✅ | github.com/vvvvvivekkk/edupluse |
-| "Suitable Python **and frontend** testing frameworks" | ⚠️ | Python: pytest (54 tests). Frontend: Playwright browser tests (2 scripts) — no separate component unit tests |
+| "Suitable Python **and frontend** testing frameworks" | ✅ | Python: pytest (66 tests). Frontend: Vitest + React Testing Library (20 component tests, `npm test`) and Playwright browser tests (3 scripts) |
 
 ## §15 UML
 
@@ -196,13 +200,28 @@ All 8 required diagrams: ✅ — D `UML.md`, `diagrams/` (PNG, SVG, Mermaid sour
 
 ## §17 Handover items
 
-Source code ✅ · database schema + seed script ✅ · setup instructions ✅ (README) · UML ✅ · API documentation ✅ · testing report ✅.
+Source code ✅ · database schema + seed script ✅ · setup instructions ✅ (README) · UML ✅ (use-case diagram updated for import/correction) · API documentation ✅ · testing report ✅.
 
 ---
 
 ## Open items for the project owner
 
 1. **Approve defaults**: state-label thresholds, response thresholds (0.30 / 0.05), α = 0.7, eligibility rules R1–R5 (see `DESIGN.md` §9).
-2. **Bulk import** (§10 stage 1 "imports"): not implemented — decide if a CSV upload is needed.
-3. **Real data**: all evaluation is synthetic; a real labelled dataset is needed before any real-world claims.
-4. **Student self-registration** is intentionally absent: the brief makes account creation an admin task (§3.3).
+2. **Real data**: all evaluation is synthetic; a real labelled dataset is needed before any real-world claims.
+3. **Student self-registration** is intentionally absent: the brief makes account creation an admin task (§3.3).
+4. **Import format**: CSV only (UTF-8). Confirm whether Excel upload or a student-information-system feed is needed.
+5. **Username**: students may sign in with their roll number; faculty and admins use their email. Confirm this is the intended "username".
+
+## Changes on 3 November 2026
+
+| Gap or issue found in review | Fix |
+|---|---|
+| §10 stage 1 "imports" not implemented | CSV bulk import (API + faculty-dashboard UI), dry run, all-or-nothing, per-row errors, audited |
+| §9 "create **or update**" / §6 "forms for entering or updating" / §3.3 "manage academic records": records could only be created | record list + audited correction with mandatory reason; state re-estimated; intervention evidence locked |
+| §3.3 "assign roles" limited | role change creates the needed profile; self-lockout prevented |
+| §8 Screen 1 "email or username": email only | students can sign in with their roll number |
+| §14 frontend testing framework missing | Vitest + Testing Library, 20 component tests |
+| Admin PATCH endpoints accepted untyped bodies; config accepted non-numeric values | typed Pydantic bodies; numeric/range/integer checks on configuration |
+| Two students evaluated at the same moment: one request failed and its policy update was lost (found in review, reproduced in a test) | PostgreSQL advisory lock around policy-version creation; student row lock on selection |
+| `e2e_cycle.py` failed at random when Thompson sampling picked faculty support | script now handles the faculty-support path |
+| `scripts/simulate.py` crashed on Windows while writing results (platform default encoding) and left `simulation_results.md` truncated | result and model-card files are read/written as UTF-8 |

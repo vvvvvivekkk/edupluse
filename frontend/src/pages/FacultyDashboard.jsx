@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer,
 import { api, CATEGORY_LABEL, INTERVENTION_LABEL, STATE_LABEL, pct } from '../api.js'
 import { useAuth } from '../App.jsx'
 import { Card, ErrorBox, HEX, Loading, Stat, StateBadge, StatusBadge } from '../components/ui.jsx'
+import ImportRecords from '../components/ImportRecords.jsx'
 
 export default function FacultyDashboard() {
   const { session } = useAuth()
@@ -12,12 +13,12 @@ export default function FacultyDashboard() {
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
   const [q, setQ] = useState('')
+  const [showImport, setShowImport] = useState(false)
 
-  useEffect(() => {
-    Promise.all([api('/students'), api('/dashboard/summary')])
-      .then(([s, d]) => { setStudents(s); setSummary(d) })
-      .catch((e) => setError(e.message))
-  }, [])
+  const load = () => Promise.all([api('/students'), api('/dashboard/summary')])
+    .then(([s, d]) => { setStudents(s); setSummary(d) })
+    .catch((e) => setError(e.message))
+  useEffect(() => { load() }, [])
 
   const rows = useMemo(() => (students || []).filter((s) =>
     (filter === 'all' || (filter === 'review' ? (s.state?.state === 'high_support_need' || s.no_improvement_streak >= 2) : s.state?.state === filter)) &&
@@ -125,6 +126,10 @@ export default function FacultyDashboard() {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      <Card title="Import academic records (CSV)" actions={<button className="btn ghost small" onClick={() => setShowImport(!showImport)}>{showImport ? 'Hide' : 'Show'}</button>}>
+        {showImport ? <ImportRecords onImported={load} /> : <p className="muted small">Bulk-enter assessment results, attendance, assignment statuses and practice activity for your students from a CSV file.</p>}
       </Card>
     </>
   )

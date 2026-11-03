@@ -36,6 +36,32 @@ function Overview() {
   )
 }
 
+// Role assignment. A profile is created when the new role needs one (students need a roll number);
+// existing profiles and their history are always kept.
+function RoleEditor({ user, onSaved, onError }) {
+  const [role, setRole] = useState(user.role)
+  const [extra, setExtra] = useState('')
+  const needsRoll = role === 'student' && !user.student_id
+  const needsDept = role === 'faculty' && !user.faculty_id
+  async function apply() {
+    try {
+      await api(`/admin/users/${user.id}`, { method: 'PATCH', body: { role, ...(needsRoll ? { roll_number: extra } : {}), ...(needsDept && extra ? { department: extra } : {}) } })
+      setExtra(''); onSaved(`${user.full_name} is now ${role}.`)
+    } catch (err) { onError(err.message) }
+  }
+  return (
+    <span className="role-editor">
+      <select aria-label={`Role of ${user.full_name}`} value={role} onChange={(e) => { setRole(e.target.value); setExtra('') }}>
+        <option value="student">student</option><option value="faculty">faculty</option><option value="admin">admin</option>
+      </select>
+      {role !== user.role && <>
+        {(needsRoll || needsDept) && <input className="small" placeholder={needsRoll ? 'Roll number' : 'Department'} value={extra} onChange={(e) => setExtra(e.target.value)} />}
+        <button className="btn ghost small" disabled={needsRoll && !extra.trim()} onClick={apply}>Apply</button>
+      </>}
+    </span>
+  )
+}
+
 function Users() {
   const [users, error, reload] = useLoad('/admin/users')
   const [f, setF] = useState({ role: 'student' })
@@ -54,6 +80,7 @@ function Users() {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   return (
     <>
+      <Msg m={m} />
       <Card title="Create user">
         <form className="record-form" onSubmit={create}>
           <label>Full name<input value={f.full_name || ''} onChange={set('full_name')} /></label>
@@ -65,13 +92,14 @@ function Users() {
           {f.role === 'faculty' && <label>Department<input value={f.department || ''} onChange={set('department')} /></label>}
           <button className="btn primary">Create</button>
         </form>
-        <Msg m={m} />
       </Card>
       <Card title={`Users (${users.length})`}>
+        <p className="small muted">Changing a role keeps the user's existing profile and history; a student role needs a roll number if the user has no student profile yet. Every change is audited.</p>
         <div className="table-wrap"><table>
           <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Profile id</th><th>Status</th><th /></tr></thead>
           <tbody>{users.map((u) => (
-            <tr key={u.id}><td>{u.id}</td><td>{u.full_name}</td><td>{u.email}</td><td>{u.role}</td>
+            <tr key={u.id}><td>{u.id}</td><td>{u.full_name}</td><td>{u.email}</td>
+              <td><RoleEditor key={`${u.id}-${u.role}`} user={u} onSaved={(text) => { setM({ ok: true, text }); reload() }} onError={(text) => setM({ ok: false, text })} /></td>
               <td>{u.student_id ? `student ${u.student_id}` : u.faculty_id ? `faculty ${u.faculty_id}` : '—'}</td>
               <td>{u.is_active ? 'active' : <span className="muted">deactivated</span>}</td>
               <td><button className="btn ghost small" onClick={() => toggle(u)}>{u.is_active ? 'Deactivate' : 'Activate'}</button></td></tr>

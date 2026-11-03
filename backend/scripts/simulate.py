@@ -111,7 +111,7 @@ def main():
             "regret_curve_every_50": [round(float(G[:, i].mean()), 2) for i in range(49, ROUNDS, 50)],
         }
     docs = Path(__file__).resolve().parent.parent.parent / "docs"
-    (docs / "simulation_results.json").write_text(json.dumps(out, indent=2))
+    (docs / "simulation_results.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
     lines = ["# Simulation results (NOT real-world evidence)", "",
              f"{RUNS} runs x {ROUNDS} rounds, same students, eligibility rules and hidden reward model for every policy. "
              "Hidden reward model is described in `backend/scripts/simulate.py`.", "",
@@ -124,7 +124,8 @@ def main():
               "", "Interpretation: under this assumed model the adaptive policy learns which eligible intervention suits which "
               "context and accumulates less regret than the baselines. Whether the assumed model resembles real students is "
               "unknown; this only verifies that the implementation learns and adapts as designed."]
-    (docs / "simulation_results.md").write_text("\n".join(lines) + "\n")
+    (docs / "simulation_results.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows consoles default to cp1252
     print("\n".join(lines))
 
 

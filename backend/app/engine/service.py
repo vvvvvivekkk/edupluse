@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -58,6 +58,24 @@ def set_rules(db: Session, rules: list[dict], user_id: int | None):
           {"before": before, "after": rules})
 
 
+# ------------------------------------------------------------------ locking
+POLICY_LOCK_KEY = 0x45445550  # arbitrary constant ("EDUP") naming the policy advisory lock
+
+
+def lock_policy(db: Session):
+    """Serialise creation of policy versions. Two students evaluated at the same moment would otherwise
+    both read version N and both try to write N+1 (one update lost, one request failing). On PostgreSQL a
+    transaction-scoped advisory lock is taken; it is released at commit/rollback. SQLite already
+    serialises writers, so nothing is needed there."""
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": POLICY_LOCK_KEY})
+
+
+def lock_student(db: Session, student_id: int):
+    """Row-lock the student so two simultaneous requests cannot both open an intervention."""
+    db.query(models.StudentProfile).filter(models.StudentProfile.id == student_id).with_for_update().first()
+
+
 # ------------------------------------------------------------------ policy storage
 def current_policy_version(db: Session) -> models.PolicyVersion:
     pv = db.query(models.PolicyVersion).order_by(models.PolicyVersion.version.desc()).first()
@@ -69,6 +87,7 @@ def current_policy_version(db: Session) -> models.PolicyVersion:
 def create_initial_policy(db: Session, user_id: int | None, reason: str) -> models.PolicyVersion:
     """Create a new version with prior parameters (A = lambda I, b = 0) for every arm.
     Used at first start and when an admin re-initialises the policy. Old versions are kept."""
+    lock_policy(db)
     cfg = get_policy_config(db)
     last = db.query(func.max(models.PolicyVersion.version)).scalar() or 0
     pv = models.PolicyVersion(version=last + 1, reason=reason, lam=cfg["lints_lambda"], v=cfg["lints_v"],
@@ -192,6 +211,7 @@ def pick_resource(db: Session, type_id: int, topic_id: int | None):
 
 
 def select_intervention(db: Session, student_id: int, user_id: int | None, seed: int | None = None) -> dict:
+    lock_student(db, student_id)
     existing = open_assignment(db, student_id)
     if existing:
         raise HTTPException(status_code=409, detail=(
@@ -248,6 +268,7 @@ def select_intervention(db: Session, student_id: int, user_id: int | None, seed:
 
 def faculty_assign(db: Session, student_id: int, code: str, note: str | None, user_id: int) -> models.InterventionAssignment:
     """Faculty-recorded intervention (e.g. a consultation). Human decision, recorded as such."""
+    lock_student(db, student_id)
     if open_assignment(db, student_id):
         raise HTTPException(status_code=409, detail="Student already has an open intervention")
     itype = db.query(models.InterventionType).filter(models.InterventionType.code == code,
@@ -388,6 +409,7 @@ def evaluate_response(db: Session, assignment_id: int, user_id: int | None) -> d
     a.status = "evaluated"
 
     # Step 1 - POLICY update (new immutable version; previous version kept for audit/restore)
+    lock_policy(db)
     cur = current_policy_version(db)
     params = load_params(db, cur)
     code = a.intervention_type.code

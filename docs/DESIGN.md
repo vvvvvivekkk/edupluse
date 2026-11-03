@@ -24,11 +24,17 @@ See `UML.md` for component, deployment and architecture diagrams.
 | Role | Can see | Can do |
 |---|---|---|
 | Student | own records only | request recommendation, access/complete own interventions (not faculty support), submit follow-up |
-| Faculty | assigned students only (`faculty_student_assignments`) | all of the above for assigned students, enter records, re-estimate state, record faculty support, evaluate |
-| Admin | everything | users/roles, faculty assignments, intervention types/resources, configuration, eligibility rules, policy re-initialisation, audit log |
+| Faculty | assigned students only (`faculty_student_assignments`) | all of the above for assigned students, enter / bulk-import / correct records, re-estimate state, record faculty support, evaluate |
+| Admin | everything | users and role assignment, faculty assignments, intervention types/resources, academic records (enter, import, correct), configuration, eligibility rules, policy re-initialisation, audit log |
 
 Every student-scoped endpoint calls `ensure_student_access()`; out-of-scope access returns 403.
 Passwords are bcrypt-hashed; JWTs expire (default 8 h). Database credentials come from environment variables.
+Users sign in with their email, or (students) with their roll number as username.
+
+**Role assignment**: an admin can change any user's role. If the new role needs a profile the user does
+not have, it is created (a student role requires a roll number). Existing profiles are never deleted, so a
+student's academic and intervention history survives a role change. An admin cannot remove their own
+admin role or deactivate themselves (prevents lock-out). Every change is audited with the previous role.
 
 ## 3. Module 1 — Student-state estimation (Algorithm 1)
 
@@ -155,6 +161,13 @@ If no component is comparable, e is undefined.
 already evaluated, and `policy_updates.assignment_id` is UNIQUE — a duplicate submission can
 never update the policy twice (tested).
 
+**Concurrency**: policy versions form a single chain (v1 → v2 → …). When several students' responses
+are evaluated at the same moment, each evaluation takes a transaction-scoped PostgreSQL advisory lock
+(`pg_advisory_xact_lock`, `service.lock_policy`) before reading the current version, so every update is
+applied on top of the previous one and none is lost or rejected (tested with 6 simultaneous evaluations;
+without the lock 5 of 6 failed on the unique version number). Selecting an intervention row-locks the
+student, so two simultaneous requests cannot open two interventions.
+
 **Policy vs state** (brief §5 Algorithm 4): evaluation performs two explicit, separate steps —
 (1) policy update: new immutable `policy_versions` row with all arm parameters, one
 `policy_updates` row; (2) state reassessment: new `student_states` row. The API response reports
@@ -168,6 +181,21 @@ See `UML.md` (ER diagram) and `models.py`. Principles:
 - CHECK constraints for score ranges, attendance, statuses; UNIQUE constraints for one response / one policy update per intervention;
 - all important operations write to `audit_logs` (logins, record entry, predictions, assignments, responses, policy updates, configuration changes, user changes);
 - minimal personal data: name, email, roll number, programme, year.
+
+**Academic-record entry, import and correction** (`routers/records.py`):
+- Entry: one record at a time (`POST /api/academic-records`), validated (required fields, ranges, references).
+- Bulk import (`POST /api/academic-records/import`, CSV): every row goes through the same validation and
+  authorisation (faculty: assigned students only). It is all-or-nothing: if any row fails, nothing is
+  stored and every row error is listed. A dry run (`?dry_run=true`) validates without storing; the UI always
+  checks first. Students are identified by roll number; topics and assignments by name or id.
+- Correction (`PATCH /api/academic-records/{type}/{id}`): only measured values can change (score,
+  attendance counts/dates, assignment status, practice counts), never whose record it is. A reason is
+  mandatory and the before/after values are written to `audit_logs`. The student's state is then
+  re-estimated as a new `student_states` row (old estimates are kept).
+- Records that are evidence for an intervention result (follow-up assessments; practice done inside an
+  intervention) are **locked** (409) — historical intervention results cannot be altered. Intervention
+  pre/post indicators are snapshots stored with the assignment/response, so correcting an ordinary record
+  later never changes an evaluated result.
 
 ## 8. Configuration
 

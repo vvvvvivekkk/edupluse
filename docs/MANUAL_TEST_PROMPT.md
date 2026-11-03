@@ -77,12 +77,25 @@ PART F - ADMIN CHECKS
    "Policy-update history". Audit log tab: EXPECT entries for create_user, create_academic_record,
    assign_intervention, record_response, policy_update.
 
+PART F2 - IMPORT, CORRECTION, ROLES, USERNAME
+1. Log in as faculty1. At the bottom of "My students", open "Import academic records (CSV)" and
+   click "Download template". Change the second row's raw_score to 25 and "Check file".
+   EXPECT: that row is listed as "raw_score cannot exceed max_score" and Import stays disabled.
+2. Fix the score (e.g. 14), "Check file", then "Import 4 records". EXPECT: "Imported 4 records".
+3. Open student EP26001 -> "Academic records" -> "Show / correct". Click "Correct" on the quiz you
+   just imported, change the score, give a reason, save. EXPECT: the row shows the new score and a
+   message that the state was re-estimated. A follow-up row (if any) shows "locked", not "Correct".
+4. Log in as admin -> Users. Change a user's role (e.g. create a user as admin, then switch to
+   faculty). EXPECT: "<name> is now faculty"; your own admin row cannot be demoted.
+   Audit log: EXPECT import_academic_records, correct_academic_record, update_user.
+5. Log out and sign in with username EP26002 / Student@123. EXPECT: the student dashboard.
+
 PART G - REQUIREMENTS CHECK
 1. Read docs/REQUIREMENTS_CHECKLIST.md and the original brief
    docs/EDUPULSE_Project_Brief_Requirements.docx.
-2. For each section, confirm what you saw in Parts A-F matches the checklist. Flag anything
+2. For each section, confirm what you saw in Parts A-F2 matches the checklist. Flag anything
    marked as met that you could not confirm, and anything in the brief the checklist misses.
-3. Run the automated tests too: cd backend; python -m pytest -q  (expect 54 passed).
+3. Run the automated tests too: cd backend; python -m pytest -q  (expect 66 passed on PostgreSQL, or 65 passed + 1 skipped on SQLite). Frontend: cd frontend; npm test  (expect 20 passed).
 
 REPORT
 Give me a short table: each Part (A-G), pass or fail, and what was different from EXPECT if it

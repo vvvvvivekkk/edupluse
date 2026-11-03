@@ -29,10 +29,13 @@ class UserIn(BaseModel):
 
 
 class UserPatch(BaseModel):
-    full_name: str | None = None
+    full_name: str | None = Field(None, min_length=1)
     role: Literal["student", "faculty", "admin"] | None = None
     is_active: bool | None = None
     password: str | None = Field(None, min_length=8)
+    # needed only when the new role requires a profile the user does not have yet
+    roll_number: str | None = Field(None, min_length=1)
+    department: str | None = None
 
 
 class AssignStudentIn(BaseModel):
@@ -45,6 +48,22 @@ class TypeIn(BaseModel):
     name: str
     description: str = ""
     is_active: bool = True
+
+
+class TypePatch(BaseModel):
+    name: str | None = Field(None, min_length=1)
+    description: str | None = None
+    is_active: bool | None = None
+
+
+class ResourcePatch(BaseModel):
+    title: str | None = Field(None, min_length=1)
+    objective: str | None = None
+    instructions: str | None = None
+    url: str | None = None
+    content: dict | None = None
+    is_active: bool | None = None
+    topic_id: int | None = None
 
 
 class ResourceIn(BaseModel):
@@ -101,18 +120,36 @@ def update_user(user_id: int, body: UserPatch, db: Session = Depends(get_db), ad
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
     changes = body.model_dump(exclude_none=True)
-    if "role" in changes and changes["role"] != u.role:
-        if (changes["role"] == "student" and not u.student_profile) or \
-           (changes["role"] == "faculty" and not u.faculty_profile):
-            raise HTTPException(status_code=422, detail="Create a matching profile before changing to this role")
+    roll_number, department = changes.pop("roll_number", None), changes.pop("department", None)
+    if u.id == admin.id and (changes.get("role", "admin") != "admin" or changes.get("is_active") is False):
+        raise HTTPException(status_code=422, detail="You cannot remove your own administrator access")
+    new_role = changes.get("role")
+    if new_role and new_role != u.role:
+        changes["previous_role"] = u.role
+        # Existing profiles (and the student's academic and intervention history) are always kept;
+        # a profile is created only when the new role needs one the user does not have.
+        if new_role == "student" and not u.student_profile:
+            if not roll_number:
+                raise HTTPException(status_code=422, detail="roll_number is required to give a user the student role")
+            db.add(models.StudentProfile(user_id=u.id, roll_number=roll_number))
+            changes["created_profile"] = f"student {roll_number}"
+        elif new_role == "faculty" and not u.faculty_profile:
+            db.add(models.FacultyProfile(user_id=u.id, department=department or "CSE"))
+            changes["created_profile"] = "faculty"
     if "password" in changes:
         u.password_hash = hash_password(changes.pop("password"))
         changes["password"] = "(changed)"
-    for k, v in changes.items():
-        if k != "password":
-            setattr(u, k, v)
+    for k in ("full_name", "role", "is_active"):
+        if k in changes:
+            setattr(u, k, changes[k])
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Roll number already exists")
     audit(db, admin.id, "update_user", "users", u.id, changes)
     db.commit()
+    db.refresh(u)
     return serializers.user(u)
 
 
@@ -152,14 +189,14 @@ def create_type(body: TypeIn, db: Session = Depends(get_db), admin=Depends(admin
 
 
 @router.patch("/intervention-types/{type_id}")
-def toggle_type(type_id: int, body: dict, db: Session = Depends(get_db), admin=Depends(admin_only)):
+def toggle_type(type_id: int, body: TypePatch, db: Session = Depends(get_db), admin=Depends(admin_only)):
     t = db.get(models.InterventionType, type_id)
     if not t:
         raise HTTPException(status_code=404, detail="Not found")
-    for k in ("name", "description", "is_active"):
-        if k in body:
-            setattr(t, k, body[k])
-    audit(db, admin.id, "update_intervention_type", "intervention_types", t.id, body)
+    changes = body.model_dump(exclude_none=True)
+    for k, v in changes.items():
+        setattr(t, k, v)
+    audit(db, admin.id, "update_intervention_type", "intervention_types", t.id, changes)
     db.commit()
     return {"id": t.id, "code": t.code, "name": t.name, "is_active": t.is_active}
 
@@ -185,14 +222,18 @@ def create_resource(body: ResourceIn, db: Session = Depends(get_db), admin=Depen
 
 
 @router.patch("/resources/{resource_id}")
-def update_resource(resource_id: int, body: dict, db: Session = Depends(get_db), admin=Depends(admin_only)):
+def update_resource(resource_id: int, body: ResourcePatch, db: Session = Depends(get_db), admin=Depends(admin_only)):
     r = db.get(models.LearningResource, resource_id)
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
-    for k in ("title", "objective", "instructions", "url", "content", "is_active", "topic_id"):
-        if k in body:
-            setattr(r, k, body[k])
-    audit(db, admin.id, "update_resource", "learning_resources", r.id, body)
+    changes = body.model_dump(exclude_unset=True)  # topic_id may be set to null (= general resource)
+    if changes.get("topic_id") is not None and not db.get(models.Topic, changes["topic_id"]):
+        raise HTTPException(status_code=422, detail="Unknown topic_id")
+    for k, v in changes.items():
+        if v is None and k not in ("topic_id", "url"):
+            raise HTTPException(status_code=422, detail=f"{k} cannot be empty")
+        setattr(r, k, v)
+    audit(db, admin.id, "update_resource", "learning_resources", r.id, changes)
     db.commit()
     return serializers.resource(r, hide_answers=False)
 

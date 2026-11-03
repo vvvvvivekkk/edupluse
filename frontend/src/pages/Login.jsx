@@ -15,7 +15,7 @@ export default function Login() {
     e.preventDefault()
     setError('')
     if (!email.trim() || !password) {
-      setError('Enter your email and password.')
+      setError('Enter your email or username and your password.')
       return
     }
     setBusy(true)
@@ -42,9 +42,10 @@ export default function Login() {
       </div>
       <form className="login-card" onSubmit={submit} noValidate>
         <h1>Sign in</h1>
-        <label>Email
-          <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label>Email or username
+          <input type="text" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
+        <p className="small muted">Students can also use their roll number as username.</p>
         <label>Password
           <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, INTERVENTION_LABEL, pct } from '../api.js'
+import { api, fmtDate, INTERVENTION_LABEL, pct } from '../api.js'
 import { Card, ErrorBox, HistoryTable, IndicatorGrid, Loading, ProgressCharts, StateCard, StatusBadge } from '../components/ui.jsx'
 
 const RECORD_FIELDS = {
@@ -64,6 +64,84 @@ function RecordForm({ studentId, topics, assignments, onSaved }) {
   )
 }
 
+const CORRECTABLE = {
+  assessment_result: [['raw_score', 'Score', 'number']],
+  attendance: [['period_start', 'From', 'date'], ['period_end', 'To', 'date'], ['sessions_attended', 'Sessions attended', 'number'], ['sessions_total', 'Total sessions', 'number']],
+  assignment: [['status', 'Status', 'status']],
+  practice: [['questions_attempted', 'Attempted', 'number'], ['questions_correct', 'Correct', 'number']],
+}
+const RECORD_LABEL = { assessment_result: 'Assessment', attendance: 'Attendance', assignment: 'Assignment', practice: 'Practice' }
+
+function describe(r, topics) {
+  const topic = (id) => topics.find((t) => t.id === id)?.name || ''
+  if (r.record_type === 'assessment_result') return `${r.title} — ${r.raw_score}/${r.max_score} (${pct(r.score_pct)})`
+  if (r.record_type === 'attendance') return `${r.period_start} to ${r.period_end}: ${r.sessions_attended}/${r.sessions_total} sessions`
+  if (r.record_type === 'assignment') return `${r.title}: ${r.status}`
+  return `${topic(r.topic_id)}: ${r.questions_correct}/${r.questions_attempted} correct${r.intervention_assignment_id ? ` (intervention #${r.intervention_assignment_id})` : ''}`
+}
+
+// Correction of a mistaken record: only measured values, with a mandatory reason (audited, before/after).
+function CorrectForm({ record, onDone }) {
+  const fields = CORRECTABLE[record.record_type]
+  const [vals, setVals] = useState(Object.fromEntries(fields.map(([k]) => [k, record[k] ?? ''])))
+  const [reason, setReason] = useState('')
+  const [err, setErr] = useState('')
+  async function save(e) {
+    e.preventDefault()
+    setErr('')
+    const body = { reason }
+    for (const [k, , kind] of fields) if (String(vals[k]) !== String(record[k] ?? '')) body[k] = kind === 'number' ? Number(vals[k]) : vals[k]
+    if (Object.keys(body).length === 1) { setErr('Change at least one value.'); return }
+    try { await api(`/academic-records/${record.record_type}/${record.id}`, { method: 'PATCH', body }); onDone(true) } catch (e2) { setErr(e2.message) }
+  }
+  return (
+    <form className="record-form" onSubmit={save}>
+      {fields.map(([k, label, kind]) => (
+        <label key={k}>{label}
+          {kind === 'status' ? (
+            <select value={vals[k]} onChange={(e) => setVals({ ...vals, [k]: e.target.value })}>
+              <option value="submitted">Submitted</option><option value="late">Late</option><option value="missing">Missing</option>
+            </select>
+          ) : <input type={kind} min={kind === 'number' ? 0 : undefined} value={vals[k]} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} />}
+        </label>
+      ))}
+      <label>Reason for correction<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. marking error" /></label>
+      <button className="btn primary" disabled={reason.trim().length < 3}>Save correction</button>
+      <button type="button" className="btn ghost" onClick={() => onDone(false)}>Cancel</button>
+      {err && <div className="alert error">{err}</div>}
+    </form>
+  )
+}
+
+function RecordsTable({ records, topics, onChanged }) {
+  const [editing, setEditing] = useState(null)
+  const [msg, setMsg] = useState('')
+  if (!records.length) return <p className="muted">No academic records yet.</p>
+  return (
+    <>
+      {msg && <div className="alert ok">{msg}</div>}
+      <div className="table-wrap"><table className="compact">
+        <thead><tr><th>Recorded</th><th>Type</th><th>Record</th><th /></tr></thead>
+        <tbody>{records.map((r) => {
+          const key = `${r.record_type}-${r.id}`
+          return editing === key ? (
+            <tr key={key}><td colSpan={4}>
+              <div className="small muted">{RECORD_LABEL[r.record_type]}: {describe(r, topics)}</div>
+              <CorrectForm record={r} onDone={(saved) => { setEditing(null); if (saved) { setMsg('Record corrected; the change and reason are in the audit log, and the state was re-estimated.'); onChanged() } }} />
+            </td></tr>
+          ) : (
+            <tr key={key}><td>{fmtDate(r.recorded_at)}</td><td>{RECORD_LABEL[r.record_type]}{r.kind === 'follow_up' ? ' (follow-up)' : ''}</td>
+              <td>{describe(r, topics)}</td>
+              <td>{r.locked
+                ? <span className="small muted" title="Evidence for an intervention result; historical results are preserved">locked</span>
+                : <button className="btn ghost small" onClick={() => { setMsg(''); setEditing(key) }}>Correct</button>}</td></tr>
+          )
+        })}</tbody>
+      </table></div>
+    </>
+  )
+}
+
 export default function StudentDetail() {
   const { id } = useParams()
   const sid = Number(id)
@@ -74,14 +152,15 @@ export default function StudentDetail() {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [showRecord, setShowRecord] = useState(false)
+  const [showRecords, setShowRecords] = useState(false)
 
   async function load() {
     try {
-      const [student, progress, history, topics, assignments] = await Promise.all([
+      const [student, progress, history, topics, assignments, records] = await Promise.all([
         api(`/students/${sid}`), api(`/students/${sid}/progress`), api(`/students/${sid}/interventions`),
-        api('/topics'), api('/assignments'),
+        api('/topics'), api('/assignments'), api(`/students/${sid}/academic-records`),
       ])
-      setD({ student, progress, history, topics, assignments })
+      setD({ student, progress, history, topics, assignments, records })
     } catch (e) {
       setError(e.message)
     }
@@ -159,6 +238,10 @@ export default function StudentDetail() {
 
       <Card title="Add academic record" actions={<button className="btn ghost small" onClick={() => setShowRecord(!showRecord)}>{showRecord ? 'Hide' : 'Show form'}</button>}>
         {showRecord ? <RecordForm studentId={sid} topics={d.topics} assignments={d.assignments} onSaved={load} /> : <p className="muted small">Enter assessment, attendance, assignment or practice data. Missing or out-of-range values are rejected.</p>}
+      </Card>
+
+      <Card title={`Academic records (${d.records.length})`} actions={<button className="btn ghost small" onClick={() => setShowRecords(!showRecords)}>{showRecords ? 'Hide' : 'Show / correct'}</button>}>
+        {showRecords ? <RecordsTable records={d.records} topics={d.topics} onChanged={load} /> : <p className="muted small">All stored records for this student. A mistaken record can be corrected with a reason (audited). Records that are evidence for an intervention result are locked.</p>}
       </Card>
 
       <Card title="Historical progress"><ProgressCharts progress={progress} /></Card>

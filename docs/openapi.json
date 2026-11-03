@@ -3,7 +3,7 @@
   "info": {
     "title": "EduPulse API",
     "description": "Response-adaptive academic intervention and learning analytics system. Cycle: records -> Random Forest state -> eligibility rules -> linear Thompson sampling -> intervention -> follow-up -> reward -> policy update -> state reassessment.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -12,7 +12,7 @@
           "auth"
         ],
         "summary": "Login",
-        "description": "Authenticate with email + password; returns a bearer token and the user (with role for redirect).",
+        "description": "Authenticate with email (or a student's roll number) + password; returns a bearer token and the\nuser (with role for redirect).",
         "operationId": "login_api_auth_login_post",
         "requestBody": {
           "content": {
@@ -403,6 +403,182 @@
             "OAuth2PasswordBearer": []
           }
         ]
+      }
+    },
+    "/api/academic-records/import": {
+      "post": {
+        "tags": [
+          "academic records"
+        ],
+        "summary": "Import Records",
+        "description": "Bulk-import academic records from CSV. All-or-nothing: if any row is invalid, nothing is stored\nand every row error is reported. Columns: roll_number (or student_id), record_type, then the fields\nof that record type; `topic` and `assignment` accept a name/title or an id.",
+        "operationId": "import_records_api_academic_records_import_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Validate only; store nothing",
+              "default": false,
+              "title": "Dry Run"
+            },
+            "description": "Validate only; store nothing"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_records_api_academic_records_import_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{student_id}/academic-records": {
+      "get": {
+        "tags": [
+          "academic records"
+        ],
+        "summary": "List Records",
+        "description": "All stored academic records of one student, newest first. `locked` records are evidence for an\nintervention result and cannot be corrected.",
+        "operationId": "list_records_api_students__student_id__academic_records_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic-records/{record_type}/{record_id}": {
+      "patch": {
+        "tags": [
+          "academic records"
+        ],
+        "summary": "Correct Record",
+        "description": "Correct a mistaken academic record. The reason and before/after values go to the audit log, and\nthe student's state is re-estimated from the corrected data (a new, separate state row).",
+        "operationId": "correct_record_api_academic_records__record_type___record_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "assessment_result",
+                "attendance",
+                "assignment",
+                "practice"
+              ],
+              "type": "string",
+              "title": "Record Type"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordCorrectionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/topics": {
@@ -1121,9 +1297,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
+                "$ref": "#/components/schemas/TypePatch"
               }
             }
           }
@@ -1244,9 +1418,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
+                "$ref": "#/components/schemas/ResourcePatch"
               }
             }
           }
@@ -1738,6 +1910,21 @@
         ],
         "title": "AssignStudentIn"
       },
+      "Body_import_records_api_academic_records_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "CSV file, UTF-8, one record per row"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_records_api_academic_records_import_post"
+      },
       "Body_token_api_auth_token_post": {
         "properties": {
           "grant_type": {
@@ -1834,10 +2021,13 @@
         "properties": {
           "email": {
             "type": "string",
-            "title": "Email"
+            "minLength": 1,
+            "title": "Email",
+            "description": "Email address, or a student's roll number as username"
           },
           "password": {
             "type": "string",
+            "minLength": 1,
             "title": "Password"
           }
         },
@@ -1847,6 +2037,122 @@
           "password"
         ],
         "title": "LoginIn"
+      },
+      "RecordCorrectionIn": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the record is being corrected (stored in the audit log)"
+          },
+          "raw_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Score"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "sessions_attended": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessions Attended"
+          },
+          "sessions_total": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessions Total"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "submitted",
+                  "late",
+                  "missing"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "questions_attempted": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions Attempted"
+          },
+          "questions_correct": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions Correct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "RecordCorrectionIn",
+        "description": "Only the measured values can be corrected; who/what the record is about cannot."
       },
       "ReinitIn": {
         "properties": {
@@ -1922,6 +2228,91 @@
           "title"
         ],
         "title": "ResourceIn"
+      },
+      "ResourcePatch": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          }
+        },
+        "type": "object",
+        "title": "ResourcePatch"
       },
       "ResponseIn": {
         "properties": {
@@ -2016,6 +2407,46 @@
         ],
         "title": "TypeIn"
       },
+      "TypePatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "TypePatch"
+      },
       "UserIn": {
         "properties": {
           "email": {
@@ -2092,7 +2523,8 @@
           "full_name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -2138,6 +2570,29 @@
               }
             ],
             "title": "Password"
+          },
+          "roll_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roll Number"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
           }
         },
         "type": "object",

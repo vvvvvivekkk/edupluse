@@ -18,7 +18,7 @@ async def lifespan(_app):
 app = FastAPI(
     lifespan=lifespan,
     title="EduPulse API",
-    version="1.0.0",
+    version="1.1.0",
     description=("Response-adaptive academic intervention and learning analytics system. "
                  "Cycle: records -> Random Forest state -> eligibility rules -> linear Thompson sampling -> "
                  "intervention -> follow-up -> reward -> policy update -> state reassessment."),

@@ -53,8 +53,22 @@ with sync_playwright() as p:
         for fs in page.locator(".quiz fieldset").all():
             fs.locator("input[type=radio]").nth(1).check()
         page.get_by_role("button", name="Submit practice answers").click()
-    else:
+    elif page.get_by_role("button", name="Mark as completed").count():
         page.get_by_role("button", name="Mark as completed").click()
+    else:
+        # Thompson sampling chose faculty support: only the faculty member can mark the consultation held.
+        print("   faculty support chosen -> teacher marks the consultation as held")
+        url = page.url
+        page.get_by_role("button", name="Log out").click()
+        login(page, "faculty1@edupulse.edu", "Faculty@123")
+        page.wait_for_url(f"{BASE}/faculty")
+        page.goto(url)
+        page.get_by_role("button", name="Mark consultation held").click()
+        page.wait_for_selector("text=Follow-up assessment")
+        page.get_by_role("button", name="Log out").click()
+        login(page, "student1@edupulse.edu", "Student@123")
+        page.wait_for_url(f"{BASE}/student")
+        page.goto(url)
     page.wait_for_selector("text=Follow-up assessment")
     page.get_by_label("Follow-up score (%)").fill("72")
     page.get_by_role("button", name="Submit and evaluate").click()
