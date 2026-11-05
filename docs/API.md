@@ -53,6 +53,7 @@ Body: `{"detail": "human-readable message"}` (validation errors: list of field e
 | POST | `/api/interventions/{assignment_id}/evaluate` | Compute reward + category, update the Thompson sampling policy (once), reassess the state. |
 | GET | `/api/dashboard/summary` | Summary |
 | GET | `/api/analytics` | Analytics |
+| GET | `/api/notifications` | Notifications and reminders, derived from stored interventions and states (newest first, max 25). Students: new/pending activities, follow-up due, results, state changes. Faculty/admin: students needing review, consultations pending, follow-ups outstanding, recent results. Items have a stable `id` and an `action_required` flag; read status is kept in the browser. |
 | GET | `/api/admin/users` | Users |
 | POST | `/api/admin/users` | Create User |
 | PATCH | `/api/admin/users/{user_id}` | Update User |

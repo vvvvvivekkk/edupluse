@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, CATEGORY_LABEL, INTERVENTION_LABEL } from '../api.js'
-import { Card, ErrorBox, HEX, Loading } from '../components/ui.jsx'
+import { Card, Empty as EmptyBox, ErrorBox, HEX, Loading } from '../components/ui.jsx'
 
-const Empty = ({ text = 'No data recorded yet.' }) => <p className="muted">{text}</p>
+const Empty = ({ text = 'No data recorded yet.' }) => <EmptyBox icon="chart">{text}</EmptyBox>
 
 export default function Analytics() {
   const [d, setD] = useState(null)
@@ -25,62 +25,62 @@ export default function Analytics() {
         </div>
       </div>
       <div className="grid-2">
-        <Card title="Average assessment score over time">
+        <Card title="Average assessment score over time" icon="trend">
           {d.avg_score_over_time.length ? (
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={d.avg_score_over_time} margin={{ left: -16, right: 12 }}>
                 <CartesianGrid stroke="var(--grid)" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} /><YAxis domain={[0, 100]} />
                 <Tooltip formatter={(v, n, p) => [`${v}% (n=${p.payload.n})`, 'Average']} />
-                <Line dataKey="avg_score" stroke={HEX.primary} strokeWidth={2} />
+                <Line type="monotone" dataKey="avg_score" stroke={HEX.primary} strokeWidth={2.5} dot={{ r: 3, fill: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={1100} />
               </LineChart>
             </ResponsiveContainer>
           ) : <Empty />}
         </Card>
-        <Card title="Assessment-score change per evaluated intervention">
+        <Card title="Assessment-score change per evaluated intervention" icon="activity">
           {changes.length ? (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={changes} margin={{ left: -16 }}>
                 <CartesianGrid stroke="var(--grid)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis />
                 <Tooltip formatter={(v, n, p) => [`${v} points (${p.payload.pre}% → ${p.payload.post}%)`, 'Change']} />
-                <Bar dataKey="change">{changes.map((c) => <Cell key={c.name} fill={c.change >= 0 ? HEX.positive : HEX.no_improvement} />)}</Bar>
+                <Bar dataKey="change" radius={[4, 4, 0, 0]}>{changes.map((c) => <Cell key={c.name} fill={c.change >= 0 ? HEX.positive : HEX.no_improvement} />)}</Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty text="No evaluated interventions yet." />}
         </Card>
-        <Card title="Assignment completion">
+        <Card title="Assignment completion" icon="checkCircle">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={asg} margin={{ left: -16 }}>
               <CartesianGrid stroke="var(--grid)" vertical={false} />
               <XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip />
-              <Bar dataKey="value">{asg.map((a) => <Cell key={a.name} fill={a.name === 'missing' ? HEX.no_improvement : a.name === 'late' ? HEX.partial : HEX.positive} />)}</Bar>
+              <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={56}>{asg.map((a) => <Cell key={a.name} fill={a.name === 'missing' ? HEX.no_improvement : a.name === 'late' ? HEX.partial : HEX.positive} />)}</Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>
-        <Card title="Intervention counts">
+        <Card title="Intervention counts" icon="layers">
           {counts.length ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={counts} layout="vertical" margin={{ left: 60 }}>
                 <CartesianGrid stroke="var(--grid)" horizontal={false} />
                 <XAxis type="number" allowDecimals={false} /><YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
-                <Tooltip /><Bar dataKey="value" fill={HEX.primary} />
+                <Tooltip /><Bar dataKey="value" fill={HEX.primary} radius={[0, 8, 8, 0]} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty />}
         </Card>
-        <Card title="Response categories">
+        <Card title="Response categories" icon="award">
           {cats.some((c) => c.value) ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={cats} margin={{ left: -16 }}>
                 <CartesianGrid stroke="var(--grid)" vertical={false} />
                 <XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip />
-                <Bar dataKey="value">{cats.map((c) => <Cell key={c.key} fill={HEX[c.key]} />)}</Bar>
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={56}>{cats.map((c) => <Cell key={c.key} fill={HEX[c.key]} />)}</Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty />}
         </Card>
-        <Card title="Intervention outcomes over time">
+        <Card title="Intervention outcomes over time" icon="calendar">
           {d.outcomes_over_time.length ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={d.outcomes_over_time} margin={{ left: -16 }}>
@@ -94,7 +94,7 @@ export default function Analytics() {
           ) : <Empty />}
         </Card>
       </div>
-      <Card title="Effectiveness by intervention type">
+      <Card title="Effectiveness by intervention type" icon="target">
         <p className="small">{d.comparison_note}</p>
         <table className="compact">
           <thead><tr><th>Intervention</th><th>Evaluated outcomes</th><th>Mean reward</th></tr></thead>

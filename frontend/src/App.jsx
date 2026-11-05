@@ -1,6 +1,9 @@
-import { createContext, useContext, useState } from 'react'
-import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { Navigate, NavLink, Route, Routes, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { clearSession, getSession } from './api.js'
+import { Icon, Logo } from './components/icons.jsx'
+import { NotificationBell } from './components/Notifications.jsx'
+import { Avatar } from './components/ui.jsx'
 import Login from './pages/Login.jsx'
 import StudentDashboard from './pages/StudentDashboard.jsx'
 import FacultyDashboard from './pages/FacultyDashboard.jsx'
@@ -23,46 +26,82 @@ function Protected({ roles, children }) {
   return <Shell>{children}</Shell>
 }
 
+const NAV = {
+  student: (u) => [['/student', 'My dashboard', 'home'], [`/students/${u.student_id}/history`, 'History', 'clock']],
+  faculty: () => [['/faculty', 'My students', 'users'], ['/analytics', 'Analytics', 'chart']],
+  admin: () => [['/admin', 'Administration', 'shield'], ['/faculty', 'All students', 'users'], ['/analytics', 'Analytics', 'chart']],
+}
+const TIPS = {
+  student: ['Your next step', 'Finish your open activity, then record the follow-up score to see how much it helped.'],
+  faculty: ['Final say is yours', 'EduPulse recommends support; you can always record faculty support yourself.'],
+  admin: ['Everything is audited', 'User, content, configuration and policy changes are written to the audit log.'],
+}
+const TITLES = [
+  ['/student', 'My dashboard'], ['/faculty', 'Students'], ['/analytics', 'Analytics'], ['/admin', 'Administration'],
+  ['/students/:id/history', 'Intervention history'], ['/students/:id', 'Student profile'], ['/interventions/:id', 'Intervention'],
+]
+
 function Shell({ children }) {
   const { session, setSession } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [navOpen, setNavOpen] = useState(false)
   const u = session.user
-  const links =
-    u.role === 'student'
-      ? [['/student', 'My dashboard'], [`/students/${u.student_id}/history`, 'History']]
-      : u.role === 'faculty'
-        ? [['/faculty', 'My students'], ['/analytics', 'Analytics']]
-        : [['/admin', 'Administration'], ['/faculty', 'All students'], ['/analytics', 'Analytics']]
+  const links = NAV[u.role](u)
+  const title = TITLES.find(([p]) => matchPath(p, location.pathname))?.[1] || 'EduPulse'
+  const [tipTitle, tipText] = TIPS[u.role]
+  useEffect(() => { setNavOpen(false) }, [location.pathname])
+
   return (
-    <div className="shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden>◉</span> EduPulse
-        </div>
-        <nav>
-          {links.map(([to, label]) => (
+    <div className={`app ${navOpen ? 'nav-open' : ''}`}>
+      <aside className="sidebar" aria-label="Main navigation">
+        <div className="brand"><Logo size={30} /><span>EduPulse<span className="brand-sub">Adaptive support</span></span></div>
+        <div className="side-label">Menu</div>
+        <nav className="side-nav">
+          {links.map(([to, label, icon]) => (
             <NavLink key={to} to={to} end className={({ isActive }) => (isActive ? 'active' : '')}>
-              {label}
+              <Icon name={icon} size={18} /><span>{label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="userbox">
-          <span>
-            {u.full_name} <em>{u.role}</em>
-          </span>
-          <button
-            className="btn ghost small"
-            onClick={() => {
-              clearSession()
-              setSession(null)
-              navigate('/login')
-            }}
-          >
-            Log out
-          </button>
+        <div className="side-foot">
+          <div className="side-tip"><strong>{tipTitle}</strong>{tipText}</div>
+          <div className="side-user">
+            <Avatar name={u.full_name} />
+            <div className="side-user-text">
+              <div className="side-user-name">{u.full_name}</div>
+              <div className="side-user-role">{u.role}</div>
+            </div>
+            <button
+              className="icon-btn"
+              aria-label="Log out"
+              title="Log out"
+              onClick={() => {
+                clearSession()
+                setSession(null)
+                navigate('/login')
+              }}
+            >
+              <Icon name="logout" size={17} />
+            </button>
+          </div>
         </div>
-      </header>
-      <main className="page">{children}</main>
+      </aside>
+      <div className="scrim" onClick={() => setNavOpen(false)} aria-hidden />
+      <div className="main">
+        <header className="topbar">
+          <button className="icon-btn menu-btn" aria-label="Open menu" onClick={() => setNavOpen(true)}><Icon name="menu" size={20} /></button>
+          <div className="topbar-title">
+            <div className="crumb">EduPulse · <span style={{ textTransform: 'capitalize' }}>{u.role}</span></div>
+            <div className="here">{title}</div>
+          </div>
+          <div className="topbar-actions">
+            <span className="today">{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+            <NotificationBell userId={u.id} />
+          </div>
+        </header>
+        <main className="page" key={location.pathname}>{children}</main>
+      </div>
     </div>
   )
 }

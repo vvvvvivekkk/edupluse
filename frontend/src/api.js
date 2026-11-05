@@ -61,3 +61,18 @@ export const INTERVENTION_LABEL = {
 export const fmtDate = (s) => (s ? new Date(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 export const fmtDateTime = (s) => (s ? new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
 export const pct = (v) => (v === null || v === undefined ? '—' : `${Math.round(v)}%`)
+export function timeAgo(s) {
+  if (!s) return ''
+  const sec = Math.round((Date.now() - new Date(s).getTime()) / 1000)
+  if (sec < 60) return 'just now'
+  const units = [['minute', 60], ['hour', 3600], ['day', 86400], ['week', 604800]]
+  for (let i = units.length - 1; i >= 0; i--) {
+    const [name, size] = units[i]
+    if (sec >= size) {
+      if (name === 'week' && sec >= 4 * 604800) return fmtDate(s)
+      const n = Math.floor(sec / size)
+      return `${n} ${name}${n > 1 ? 's' : ''} ago`
+    }
+  }
+  return fmtDate(s)
+}

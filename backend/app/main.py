@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import CORS_ORIGINS
 from .database import Base, engine
-from .routers import admin, auth, dashboard, interventions, records, students
+from .routers import admin, auth, dashboard, interventions, notifications, records, students
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -26,7 +26,7 @@ app = FastAPI(
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
-for r in (auth, students, records, interventions, dashboard, admin):
+for r in (auth, students, records, interventions, dashboard, notifications, admin):
     app.include_router(r.router)
 
 

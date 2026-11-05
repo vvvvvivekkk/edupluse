@@ -67,6 +67,8 @@ def assignment(a: models.InterventionAssignment, detail=False, hide_answers=True
          "category": a.response.category if a.response else None,
          "category_label": CATEGORY_LABELS.get(a.response.category) if a.response and a.response.category else None,
          "reward": a.response.reward if a.response else None,
+         "learning_gain": a.response.learning_gain if a.response else None,
+         "evaluated_at": iso(a.response.evaluated_at) if a.response else None,
          "policy_version_id": a.policy_version_id, "faculty_note": a.faculty_note}
     if detail:
         d.update({"context": a.context, "eligibility": a.eligibility_reasons, "sampled_scores": a.sampled_scores,

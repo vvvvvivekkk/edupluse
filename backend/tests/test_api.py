@@ -194,3 +194,41 @@ def test_faculty_manual_support_record(client, tokens):
     # students cannot mark faculty support complete
     assert client.post(f"/api/interventions/{aid}/complete", json={}, headers=tokens["student1"]).status_code == 403
     assert client.post(f"/api/interventions/{aid}/complete", json={}, headers=tokens["faculty1"]).status_code == 200
+
+
+# ------------------------------------------------------------------ notifications & reminders
+def _kinds(client, headers):
+    r = client.get("/api/notifications", headers=headers)
+    assert r.status_code == 200, r.text
+    return {n["id"]: n for n in r.json()}
+
+
+def test_notifications_follow_the_intervention_lifecycle(client, tokens):
+    hs, hf = tokens["student1"], tokens["faculty1"]
+    aid = client.post("/api/interventions/select", json={"student_id": STUDENT1}, headers=hs).json()["assignment_id"]
+    detail = client.get(f"/api/interventions/{aid}", headers=hs).json()
+    n = _kinds(client, hs)
+    assert n[f"assigned-{aid}"]["action_required"] and n[f"assigned-{aid}"]["link"] == f"/interventions/{aid}"
+    assert f"assigned-{aid}" not in _kinds(client, tokens["student2"])  # other students never see it
+
+    client.post(f"/api/interventions/{aid}/access", headers=hs)
+    n = _kinds(client, hs)
+    assert f"assigned-{aid}" not in n and f"pending-{aid}" in n
+
+    h = hf if detail["intervention"] == "faculty_support" else hs
+    qs = (detail["resource"] or {}).get("content", {}).get("questions")
+    client.post(f"/api/interventions/{aid}/complete", json={"answers": [0] * len(qs)} if qs else {}, headers=h)
+    assert _kinds(client, hs)[f"followup-{aid}"]["action_required"]
+    assert f"followup-{aid}" in _kinds(client, hf)  # the responsible faculty member is told too
+    assert f"followup-{aid}" not in _kinds(client, tokens["faculty2"])
+
+    client.post(f"/api/interventions/{aid}/response", json={"post_score": 90}, headers=hs)
+    n = _kinds(client, hs)
+    assert f"followup-{aid}" not in n and n[f"result-{aid}"]["title"].startswith("Result:")
+    assert f"result-{aid}" in _kinds(client, tokens["admin"])
+
+
+def test_history_rows_carry_gain_and_evaluation_time(client, tokens):
+    run_cycle(client, tokens["student1"], tokens["faculty1"], STUDENT1, post_score=85)
+    row = client.get(f"/api/students/{STUDENT1}/interventions", headers=tokens["student1"]).json()[0]
+    assert row["learning_gain"] is not None and row["evaluated_at"]

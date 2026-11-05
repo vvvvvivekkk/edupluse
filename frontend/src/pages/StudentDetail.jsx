@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, fmtDate, INTERVENTION_LABEL, pct } from '../api.js'
-import { Card, ErrorBox, HistoryTable, IndicatorGrid, Loading, ProgressCharts, StateCard, StatusBadge } from '../components/ui.jsx'
+import { Avatar, Card, ErrorBox, HistoryTable, IndicatorGrid, Loading, Meter, ProgressCharts, StateCard, StateTrend, StatusBadge } from '../components/ui.jsx'
+import { Icon } from '../components/icons.jsx'
 
 const RECORD_FIELDS = {
   assessment_result: [['assessment_title', 'Assessment title', 'text'], ['topic_id', 'Topic', 'topic'], ['raw_score', 'Score', 'number'], ['max_score', 'Out of', 'number']],
@@ -190,13 +191,13 @@ export default function StudentDetail() {
     <>
       <div className="page-head">
         <div>
-          <Link to="/faculty" className="small">← Students</Link>
-          <h1>{s.name}</h1>
+          <Link to="/faculty" className="back-link"><Icon name="arrowLeft" size={15} />Students</Link>
+          <div className="cell-user"><Avatar name={s.name} /><h1>{s.name}</h1></div>
           <p className="muted">{s.roll_number} · {s.program} · Year {s.year} · {s.email}</p>
         </div>
         <div className="actions">
-          <button className="btn ghost" disabled={busy} onClick={predict}>Re-estimate state</button>
-          <button className="btn primary" disabled={busy || !!open} onClick={select} title={open ? 'Finish the open intervention first' : ''}>Select next intervention</button>
+          <button className="btn" disabled={busy} onClick={predict}><Icon name="refresh" size={16} />Re-estimate state</button>
+          <button className="btn primary" disabled={busy || !!open} onClick={select} title={open ? 'Finish the open intervention first' : ''}><Icon name="zap" size={16} />Select next intervention</button>
         </div>
       </div>
       <ErrorBox error={error} />
@@ -206,8 +207,8 @@ export default function StudentDetail() {
       )}
 
       <div className="grid-2">
-        <Card title="Estimated academic state"><StateCard state={s.state} stale={s.state_is_stale} /></Card>
-        <Card title="Open intervention">
+        <Card title="Estimated academic state" icon="activity"><StateCard state={s.state} stale={s.state_is_stale} /><StateTrend states={progress.states} /></Card>
+        <Card title="Open intervention" icon="target">
           {open ? (
             <div className="current">
               <div className="current-type">{INTERVENTION_LABEL[open.intervention]}</div>
@@ -226,26 +227,31 @@ export default function StudentDetail() {
         </Card>
       </div>
 
-      <Card title="Academic indicators"><IndicatorGrid indicators={s.indicators} /></Card>
+      <Card title="Academic indicators" icon="chart"><IndicatorGrid indicators={s.indicators} /></Card>
 
-      <Card title="By topic">
+      <Card title="By topic" icon="book">
         <div className="table-wrap">
           <table><thead><tr><th>Topic</th><th>Latest score</th><th>Practice accuracy</th></tr></thead>
-            <tbody>{s.per_topic.map((t) => <tr key={t.topic_id}><td>{t.topic}</td><td>{pct(t.latest_score)}</td><td>{pct(t.practice_accuracy_pct)}</td></tr>)}</tbody>
+            <tbody>{s.per_topic.map((t) => <tr key={t.topic_id}><td><strong>{t.topic}</strong></td><td><TopicCell v={t.latest_score} /></td><td><TopicCell v={t.practice_accuracy_pct} /></td></tr>)}</tbody>
           </table>
         </div>
       </Card>
 
-      <Card title="Add academic record" actions={<button className="btn ghost small" onClick={() => setShowRecord(!showRecord)}>{showRecord ? 'Hide' : 'Show form'}</button>}>
+      <Card title="Add academic record" icon="plus" actions={<button className="btn ghost small" onClick={() => setShowRecord(!showRecord)}>{showRecord ? 'Hide' : 'Show form'}</button>}>
         {showRecord ? <RecordForm studentId={sid} topics={d.topics} assignments={d.assignments} onSaved={load} /> : <p className="muted small">Enter assessment, attendance, assignment or practice data. Missing or out-of-range values are rejected.</p>}
       </Card>
 
-      <Card title={`Academic records (${d.records.length})`} actions={<button className="btn ghost small" onClick={() => setShowRecords(!showRecords)}>{showRecords ? 'Hide' : 'Show / correct'}</button>}>
+      <Card title={`Academic records (${d.records.length})`} icon="file" actions={<button className="btn ghost small" onClick={() => setShowRecords(!showRecords)}>{showRecords ? 'Hide' : 'Show / correct'}</button>}>
         {showRecords ? <RecordsTable records={d.records} topics={d.topics} onChanged={load} /> : <p className="muted small">All stored records for this student. A mistaken record can be corrected with a reason (audited). Records that are evidence for an intervention result are locked.</p>}
       </Card>
 
-      <Card title="Historical progress"><ProgressCharts progress={progress} /></Card>
-      <Card title="Intervention history" actions={<Link to={`/students/${sid}/history`}>Full history</Link>}><HistoryTable rows={history} /></Card>
+      <Card title="Historical progress" icon="trend"><ProgressCharts progress={progress} /></Card>
+      <Card title="Intervention history" icon="clock" actions={<Link to={`/students/${sid}/history`}>Timeline view<Icon name="arrowRight" size={14} /></Link>}><HistoryTable rows={history} /></Card>
     </>
   )
+}
+
+function TopicCell({ v }) {
+  if (v === null || v === undefined) return <span className="muted">—</span>
+  return <div className="cell-meter"><span className="v">{pct(v)}</span><Meter value={v} /></div>
 }

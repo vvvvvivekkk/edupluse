@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api, fmtDateTime, INTERVENTION_LABEL, pct } from '../api.js'
 import { useAuth } from '../App.jsx'
 import { Card, CategoryBadge, ErrorBox, Loading, StateBadge, StatusBadge } from '../components/ui.jsx'
+import { Icon } from '../components/icons.jsx'
 
 // Screens 5 (intervention details) and 6 (follow-up assessment / response)
 export default function InterventionDetail() {
@@ -78,7 +79,7 @@ export default function InterventionDetail() {
     <>
       <div className="page-head">
         <div>
-          <Link to={back} className="small">← Back</Link>
+          <Link to={back} className="back-link"><Icon name="arrowLeft" size={15} />Back</Link>
           <h1>{r?.title || INTERVENTION_LABEL[a.intervention]}</h1>
           <p className="muted">{INTERVENTION_LABEL[a.intervention]} · Topic: {a.topic || 'General'} · Assigned {fmtDateTime(a.assigned_at)}</p>
         </div>
@@ -88,11 +89,11 @@ export default function InterventionDetail() {
 
       <div className="grid-2 wide-left">
         <div>
-          <Card title="Activity">
+          <Card title="Activity" icon="book">
             {r?.objective && <p><strong>Learning objective:</strong> {r.objective}</p>}
             {r?.instructions && <p>{r.instructions}</p>}
             {a.faculty_note && <p><strong>Faculty note:</strong> {a.faculty_note}</p>}
-            {r?.url && <p><a className="btn ghost" href={r.url} target="_blank" rel="noreferrer">Open learning material ↗</a></p>}
+            {r?.url && <p><a className="btn" href={r.url} target="_blank" rel="noreferrer"><Icon name="link" size={15} />Open learning material</a></p>}
             {days && (
               <ol className="plan">{days.map((d) => <li key={d.day}><strong>Day {d.day}.</strong> {d.task}</li>)}</ol>
             )}
@@ -125,20 +126,20 @@ export default function InterventionDetail() {
           </Card>
 
           {a.status === 'completed' && (
-            <Card title="Follow-up assessment">
+            <Card title="Follow-up assessment" icon="file">
               <p>Take the follow-up assessment on <strong>{a.topic}</strong> and record the score. It is compared with your
                 pre-intervention score of <strong>{pct(a.pre_score)}</strong> on the same topic and scale.</p>
               <form onSubmit={submitFollowUp} className="inline-form">
                 <label>Follow-up score (%)
                   <input type="number" min="0" max="100" step="0.5" value={score} onChange={(e) => setScore(e.target.value)} />
                 </label>
-                <button className="btn primary" disabled={busy}>{busy ? 'Saving…' : 'Submit and evaluate'}</button>
+                <button className="btn primary" disabled={busy}>{busy ? <><span className="spinner" aria-hidden />Saving…</> : 'Submit and evaluate'}</button>
               </form>
             </Card>
           )}
 
           {resp && (
-            <Card title="Response evaluation">
+            <Card title="Response evaluation" icon="award">
               <div className="eval">
                 <div><span className="muted small">Before</span><strong>{pct(resp.evidence?.pre_score ?? a.pre_score)}</strong></div>
                 <div><span className="muted small">After</span><strong>{pct(resp.post_indicators?.topic_score)}</strong></div>
@@ -163,7 +164,7 @@ export default function InterventionDetail() {
           )}
         </div>
 
-        <Card title="Why this was selected">
+        <Card title="Why this was selected" icon="cpu">
           <p className="small"><strong>Eligibility:</strong> {(a.reason || []).join('; ') || '—'}</p>
           <p className="small"><strong>Eligible set:</strong> {a.eligible.map((e) => INTERVENTION_LABEL[e]).join(', ')}</p>
           <p className="small"><strong>Method:</strong> {a.selection_method === 'linear_thompson' ? 'Linear Thompson sampling' : 'Recorded by faculty'}</p>
