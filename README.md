@@ -42,6 +42,9 @@ Documentation index:
 
 ## Setup
 
+> **Setting up on a fresh Windows laptop?** Follow [`SETUP.md`](SETUP.md): a step-by-step guide that starts from
+> installing Git, Python, Node.js and PostgreSQL, then covers how to run the app and fix common errors.
+
 ### Requirements
 - Python 3.11+ (developed on 3.13)
 - Node.js 18+ (developed on 22)
